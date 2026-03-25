@@ -41,6 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-/lib/generated/prisma
-
-/lib/generated/prisma
+# Prisma generated files
+/generated/
+/prisma/migrations/
+!prisma/migrations/migration_lock.tom
