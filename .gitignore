@@ -41,7 +41,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Prisma generated files
+# Prisma
 /generated/
-/prisma/migrations/
-!prisma/migrations/migration_lock.tom
+/lib/generated/
+/node_modules/.prisma/
+*.wasm
+*.wasm-base64.js
+
+Prisma migrations (optional - uncomment if you don't want to track migrations)
+prisma/migrations/
