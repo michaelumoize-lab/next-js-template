@@ -21,7 +21,7 @@ export default async function Home() {
   return (
     <div className="flex flex-col gap-2 min-h-screen items-center justify-center bg-gray-900">
       <h1 className="mb-4 text-4xl font-bold">Not logged in</h1>
-      <div className="flex item-center gap-2">
+      <div className="flex items-center gap-2">
         <Link
           href="/auth/sign-up"
           className="inline-flex text-lg text-indigo-400 hover:underline"

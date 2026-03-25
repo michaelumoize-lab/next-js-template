@@ -15,10 +15,11 @@ const RESEND_COOLDOWN = 60;
 
 // You can get this from your Neon Auth configuration
 // This could be fetched from an endpoint or set as an environment variable
-const EMAIL_VERIFICATION_ENABLED = process.env.NEXT_PUBLIC_EMAIL_VERIFICATION_ENABLED === "true";
+const EMAIL_VERIFICATION_ENABLED =
+  process.env.NEXT_PUBLIC_EMAIL_VERIFICATION_ENABLED === "true";
 
 export function AuthPageClient() {
-//   useRedirectToast();
+  //   useRedirectToast();
 
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("sign-in");
@@ -45,6 +46,13 @@ export function AuthPageClient() {
     }, 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
+
+    // If email verification is disabled and step is verify, redirect back to auth
+  useEffect(() => {
+    if (step === "verify" && !EMAIL_VERIFICATION_ENABLED) {
+      setStep("auth");
+    }
+  }, [step]);
 
   // Shared helper — sends a new OTP and jumps to the verify screen
   const goToVerify = async (emailToVerify: string) => {
@@ -73,27 +81,74 @@ export function AuthPageClient() {
       });
 
       if (error) {
-        // User signed up before but never verified — resend code and go to verify
+        // Handle different error scenarios
+        const errorMessage = error.message?.toLowerCase();
+
+        // Check if it's an "already exists" error
         if (
-          error.message?.toLowerCase().includes("already exists") ||
-          error.message?.toLowerCase().includes("user already")
+          errorMessage?.includes("already exists") ||
+          errorMessage?.includes("user already")
         ) {
-          toast("Account exists but not verified — sending a new code.", {
-            icon: "📧",
-          });
-          await goToVerify(email);
-          return;
+          // Try to sign in to check verification status
+          try {
+            const signInResult = await authClient.signIn.email({
+              email,
+              password,
+            });
+
+            if (signInResult.error) {
+              // Sign in failed - might be wrong password or unverified
+              if (
+                signInResult.error.message
+                  ?.toLowerCase()
+                  .includes("not verified")
+              ) {
+                toast(
+                  "Account exists but is not verified. Sending verification code.",
+                  {
+                    icon: "📧",
+                  },
+                );
+                await goToVerify(email);
+                return;
+              } else {
+                toast.error(
+                  "Account exists but password is incorrect. Please try signing in.",
+                );
+                setMode("sign-in"); // Switch to sign-in mode
+                return;
+              }
+            }
+
+            // Sign in successful - account is verified
+            toast.success(
+              "Account already exists and is verified! Signing you in...",
+            );
+            router.push("/dashboard");
+            return;
+          } catch (signInErr) {
+            // If we can't determine status, offer options
+            toast.error(
+              "Account already exists. Would you like to sign in instead?",
+            );
+            setMode("sign-in");
+            return;
+          }
         }
+
         throw new Error(error.message);
       }
 
-      // Check if email verification is enabled in Neon Auth
-      if (EMAIL_VERIFICATION_ENABLED && data?.user && !data.user.emailVerified) {
+      // Handle successful sign-up
+      if (
+        EMAIL_VERIFICATION_ENABLED &&
+        data?.user &&
+        !data.user.emailVerified
+      ) {
         toast.success("Verification code sent to your email!");
         setStep("verify");
         setResendCooldown(RESEND_COOLDOWN);
       } else {
-        // If email verification is disabled, redirect immediately
         router.push("/dashboard");
       }
     } catch (err) {
@@ -178,12 +233,16 @@ export function AuthPageClient() {
 
   // ── Google OAuth ───────────────────────────────────────────────────────────
   const handleGoogle = async () => {
-    await authClient.signIn.social({
-      provider: "google",
-      callbackURL: "/dashboard", // returning users go to dashboard
-      newUserCallbackURL: "/dashboard", // new users go to welcome splash
-      errorCallbackURL: "/auth/sign-in",
-    });
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/dashboard",
+        newUserCallbackURL: "/dashboard",
+        errorCallbackURL: "/auth/sign-in",
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed");
+    }
   };
 
   // ── OTP verification screen (only shown if EMAIL_VERIFICATION_ENABLED is true) ──
@@ -262,11 +321,7 @@ export function AuthPageClient() {
     );
   }
 
-  // If email verification is disabled and step is verify, redirect back to auth
-  if (step === "verify" && !EMAIL_VERIFICATION_ENABLED) {
-    setStep("auth");
-  }
-
+  // ── Main auth screen ───────────────────────────────────────────────────────
   // ── Main auth screen ───────────────────────────────────────────────────────
   return (
     <div className="w-full max-w-md">

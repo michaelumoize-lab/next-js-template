@@ -48,5 +48,5 @@ next-env.d.ts
 *.wasm
 *.wasm-base64.js
 
-Prisma migrations (optional - uncomment if you don't want to track migrations)
+# Prisma migrations (optional - uncomment if you don't want to track migrations)
 prisma/migrations/
